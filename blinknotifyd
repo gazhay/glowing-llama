@@ -1,0 +1,85 @@
+#!/usr/bin/python
+
+import subprocess
+import os
+import glob
+#import simplejson
+from optparse import OptionParser
+
+parser = OptionParser()
+parser.add_option("-d", "--debug",  action="store_true", dest="debug",     help="Debug output displayed")
+parser.add_option("-c", "--config", action="store"     , dest="configLoc", help="Specify a config file", default="~/")
+parser.add_option("-r", "--rulesd", action="store"     , dest="rulesLoc",  help="Specify a rules directory", default="~/rules.d/" )
+
+(options, args) = parser.parse_args()
+
+try: 
+	options.configLoc
+except NameError:
+	options.configLoc = "~/"
+
+try: 
+	options.rulesLoc
+except NameError:
+	options.rulesLoc = "~/rules.d/"
+
+if options.debug:
+	print "config location : "+ options.configLoc
+	print "rules  location : "+ options.rulesLoc
+
+def loadConfig():
+	try:
+		with open(os.path.expanduser(options.configLoc+'blink.conf'), 'r') as config_file:
+			config = config_file.read()
+		blinkd = simplejson.loads(config)
+	except:
+		blinkd = None
+
+def runProcess(exe):
+	if not options.debug:
+		p = subprocess.Popen(exe, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+		while(True):
+			retcode = p.poll() #returns None while subprocess is running
+			line = p.stdout.readline()
+			yield line
+			if(retcode is not None):
+				break
+	else:
+		for line in dummyoutput:
+			yield line
+
+def processFull(exe):
+	p = subprocess.Popen(exe, shell=True, stdout=subprocess.PIPE)
+	output = p.stdout.readlines()
+	return "".join(output).rstrip()
+	output = ""
+	for lines in runProcess(exe):
+		output+=lines
+	return output
+
+#loadConfig()
+
+blinktool = processFull( "which blink" )
+
+for rules_file in sorted(glob.glob(os.path.expanduser(options.rulesLoc+"*"))):
+	shortname = os.path.basename(rules_file)
+	if options.debug: print "Handling rule "+rules_file
+	try:
+		ruleResult = processFull( rules_file )
+	except:
+		ruleResult = 0
+	if ruleResult == "" or ruleResult == "0":
+		# found a notification, so display it.
+		if options.debug: print "will not Blink"
+	else:
+		if options.debug: print "Will blink"
+		(redv,greenv,bluev) = ruleResult.split(',')
+		cmd = blinktool+' --rgb '+redv+','+greenv+','+bluev
+		if options.debug: print cmd
+		processFull(cmd)
+		exit(0)
+
+# Got here? well none of your rules matched, so will we blink? or just switch off?
+
+cmd = blinktool + " --off"
+exit(0)
