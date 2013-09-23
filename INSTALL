@@ -1,3 +1,8 @@
-Add to crontab every five minutes
+Basic start
 
+Add the tool to your crontab, with the -r flag set correctly.
 
+example
+*/5 * * * * /home/gaz/blinknotify/blinknotifyd -r ~/blinknotify/rules.d/ > /home/gaz/blinknotify/blink.log 2>&1
+
+will result in a check every 5 minutes, with messages logged to a log file.
